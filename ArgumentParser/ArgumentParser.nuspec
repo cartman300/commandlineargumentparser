@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>CARP.ArgumentParser</id>
+    <version>1.0.0</version>
+    <title>Command Line Argument Parser</title>
+    <authors>carpmanium</authors>
+    <owners>carpmanium</owners>
+    <licenseUrl>https://github.com/cartman300/commandlineargumentparser/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/cartman300/commandlineargumentparser</projectUrl>
+    <iconUrl>http://carp.tk/$/carpico.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Parses command line arguments</description>
+    <releaseNotes>First release</releaseNotes>
+    <copyright>Copyleft 2017</copyright>
+    <tags>commandline command line argument parser</tags>
+  </metadata>
+  <files>
+	<file src="ArgumentParser.cs" target="content" />
+  </files>
+</package>
