@@ -4,28 +4,21 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Globalization;
+using System.Reflection;
 
 namespace CARP {
 	public static class ArgumentParser {
 		static bool Parsed = false;
 		static string CmdLine;
-		static string ExecutablePath;
+		static string ExePath;
 		static Dictionary<string, List<string>> Switches;
 		static string CurrentSwitch;
-
-		public static IEnumerable<KeyValuePair<string, string[]>> All {
-			get {
-				Parse();
-
-				foreach (var V in Switches)
-					yield return new KeyValuePair<string, string[]>(V.Key, V.Value.ToArray());
-			}
-		}
 
 		static void Parse() {
 			if (Parsed)
 				return;
 			Parsed = true;
+
 			CmdLine = Environment.CommandLine;
 			Switches = new Dictionary<string, List<string>>();
 
@@ -66,6 +59,8 @@ namespace CARP {
 
 			if (CurTok.Length > 0)
 				EmitToken(CurTok.ToString());
+
+			CmdLine = CmdLine.Substring(CmdLine.IndexOf(' ') + 1);
 		}
 
 		static void EmitToken(string Tok) {
@@ -82,7 +77,7 @@ namespace CARP {
 			}
 
 			if (CurrentSwitch == null)
-				ExecutablePath = Tok;
+				ExePath = Tok;
 			else
 				Switches[CurrentSwitch].Add(Tok);
 		}
@@ -93,11 +88,70 @@ namespace CARP {
 				Switches.Add(CurrentSwitch, new List<string>());
 		}
 
-		public static string GetExecutablePath() {
-			Parse();
-			return ExecutablePath;
+		static T ParseToT<T>(string Src) {
+			Type TT = typeof(T);
+
+			// If no value found, return default
+			if (string.IsNullOrEmpty(Src))
+				return default(T);
+
+			// If it's a string, return it
+			if (TT == typeof(string))
+				return (T)(object)Src;
+
+			// If it contains a public string constructor
+			if (TT.GetConstructor(new Type[] { typeof(string) }) != null)
+				return (T)Activator.CreateInstance(TT, Src);
+
+			// If it has a Type.Parse static method
+			MethodInfo ParseMethod;
+			if ((ParseMethod = TT.GetMethod("Parse", new Type[] { typeof(string), typeof(IFormatProvider) })) != null)
+				return (T)ParseMethod.Invoke(null, new object[] { Src, CultureInfo.InvariantCulture });
+			else if ((ParseMethod = TT.GetMethod("Parse", new Type[] { typeof(string) })) != null)
+				return (T)ParseMethod.Invoke(null, new object[] { Src });
+
+			throw new NotImplementedException("Could not parse type " + TT);
 		}
 
+		////////////////////////////////////////////////////////////////////////////// Public functions
+
+		/// <summary>
+		/// Get all argument names and values passed to the program
+		/// </summary>
+		public static IEnumerable<KeyValuePair<string, string[]>> All {
+			get {
+				Parse();
+
+				foreach (var V in Switches)
+					yield return new KeyValuePair<string, string[]>(V.Key, V.Value.ToArray());
+			}
+		}
+
+		/// <summary>
+		/// Get exe path from command line
+		/// </summary>
+		public static string ExecutablePath {
+			get {
+				Parse();
+				return ExePath;
+			}
+		}
+
+		/// <summary>
+		/// Get raw command line without the exe path
+		/// </summary>
+		public static string CommandLine {
+			get {
+				Parse();
+				return CmdLine;
+			}
+		}
+
+		/// <summary>
+		/// Get defined values as string array for argument
+		/// </summary>
+		/// <param name="Name">Name of the argument</param>
+		/// <returns>Value array</returns>
 		public static string[] Get(string Name) {
 			Parse();
 
@@ -106,26 +160,54 @@ namespace CARP {
 			return null;
 		}
 
+		/// <summary>
+		/// Get defined values as array for argument parsed to type T
+		/// </summary>
+		/// <typeparam name="T">Return type, has to have either a constructor that takes a string or a static Parse method</typeparam>
+		/// <param name="Name">Name of the argument</param>
+		/// <returns>Value array</returns>
+		public static T[] Get<T>(string Name = null) {
+			string[] SrcArr = Get(Name);
+			T[] Val = new T[SrcArr.Length];
+
+			for (int i = 0; i < SrcArr.Length; i++)
+				Val[i] = ParseToT<T>(SrcArr[i]);
+			return Val;
+		}
+
+		/// <summary>
+		/// Get last defined value for argument as string
+		/// </summary>
+		/// <param name="Name">Name of the argument</param>
+		/// <returns>Value</returns>
 		public static string GetSingle(string Name) {
 			string[] Values = Get(Name);
-			if (Values != null)
+			if (Values != null && Values.Length > 0)
 				return Values[Values.Length - 1];
+			if (Values != null && Values.Length == 0)
+				return "";
 			return null;
 		}
 
-		public static T GetSingle<T>(string Name) {
-			if (typeof(T) == typeof(string))
-				return (T)(object)GetSingle(Name);
-			else if (typeof(T) == typeof(int))
-				return (T)(object)int.Parse(GetSingle(Name));
-			else if (typeof(T) == typeof(float))
-				return (T)(object)float.Parse(GetSingle(Name), CultureInfo.InvariantCulture);
-			else if (typeof(T) == typeof(bool))
-				return (T)(object)Defined(Name);
-			else
-				throw new NotImplementedException();
+		/// <summary>
+		/// Get last defined value for argument parsed to type T
+		/// </summary>
+		/// <typeparam name="T">Return type, has to have either a constructor that takes a string or a static Parse method</typeparam>
+		/// <param name="Name">Name of the argument</param>
+		/// <returns>Value</returns>
+		public static T GetSingle<T>(string Name = null) {
+			// If no value name found, assume same as type name except lower case
+			if (string.IsNullOrEmpty(Name))
+				Name = typeof(T).Name.ToLower();
+
+			return ParseToT<T>(GetSingle(Name));
 		}
 
+		/// <summary>
+		/// Check if argument was defined
+		/// </summary>
+		/// <param name="Name">Name of argument</param>
+		/// <returns>True when defined, False when not defined</returns>
 		public static bool Defined(string Name) {
 			return Get(Name) != null;
 		}
