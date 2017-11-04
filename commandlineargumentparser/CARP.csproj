@@ -60,4 +60,8 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\PxtlCa.XmlCommentMarkDownGenerator.0.2.6270.2853\build\PxtlCa.XmlCommentMarkDownGenerator.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\PxtlCa.XmlCommentMarkDownGenerator.0.2.6270.2853\build\PxtlCa.XmlCommentMarkDownGenerator.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>type $(SolutionDir)README_template.md &gt; $(SolutionDir)README.md
+type $(SolutionDir)Docs\CARP.GeneratedXmlDoc.md &gt;&gt; $(SolutionDir)README.md</PostBuildEvent>
+  </PropertyGroup>
 </Project>
