@@ -7,6 +7,20 @@ NuGet Package - https://www.nuget.org/packages/CARP.ArgumentParser
 
 # CARP #
 
+#### Property ArgumentParser.Suffix
+
+ Returns tokens after last empty '--' 
+
+
+
+---
+#### Property ArgumentParser.SuffixString
+
+ Returns string after last empty '--' 
+
+
+
+---
 #### Property ArgumentParser.All
 
  Get all argument names and values passed to the program 

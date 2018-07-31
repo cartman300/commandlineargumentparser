@@ -21,31 +21,19 @@ namespace CARP {
 
 	class Program {
 		static void Main(string[] Args) {
-			// Raw command line without exe path
-			Console.WriteLine("{0}\n", ArgumentParser.CommandLine);
+			Console.WriteLine(ArgumentParser.CommandLine);
 
-			// Get exe path
-			Console.WriteLine("Executable path = {0}", ArgumentParser.ExecutablePath);
+			foreach (var Arg in ArgumentParser.All)
+				Console.WriteLine("{0} = {1}", Arg.Key, string.Join(", ", Arg.Value));
 
-			// Get non existing argument
-			Guid Guid = ArgumentParser.GetSingle<Guid>("wate");
-			Console.WriteLine("guid = {0}", Guid);
+			Console.ForegroundColor = ConsoleColor.Green;
 
-			// Get existing arguments
-			string Str = ArgumentParser.GetSingle<string>();
-			Console.WriteLine("string = {0}", Str);
+			foreach (var Arg in ArgumentParser.Suffix)
+				Console.WriteLine(Arg);
 
-			Player P = ArgumentParser.GetSingle<Player>();
-			Console.WriteLine("player = {0}", P);
+			Console.WriteLine(ArgumentParser.SuffixString);
 
-			float F = ArgumentParser.GetSingle<float>("float");
-			Console.WriteLine("float = {0}", F);
-
-			float[] F2 = ArgumentParser.Get<float>("float");
-			Console.WriteLine("floats = {0}", string.Join("; ", F2));
-
-			IPAddress IP = ArgumentParser.GetSingle<IPAddress>();
-			Console.WriteLine("ipaddress = {0}", IP);
+			Console.ReadLine();
 		}
 	}
 }

@@ -8,11 +8,18 @@ using System.Reflection;
 
 namespace CARP {
 	public static class ArgumentParser {
+		// Set this to true if only one value per switch is allowed
+		static bool OneValuePerSwitch = false;
+
 		static bool Parsed = false;
 		static string CmdLine;
 		static string ExePath;
 		static Dictionary<string, List<string>> Switches;
 		static string CurrentSwitch;
+
+		static bool StopProcessing;
+		static List<string> SuffixTokens;
+		static string SuffixStringInt;
 
 		static void Parse() {
 			if (Parsed)
@@ -21,6 +28,9 @@ namespace CARP {
 
 			CmdLine = Environment.CommandLine;
 			Switches = new Dictionary<string, List<string>>();
+			SuffixTokens = new List<string>();
+			StopProcessing = false;
+			ExePath = null;
 
 			bool InQuote = false;
 			StringBuilder CurTok = new StringBuilder();
@@ -28,22 +38,26 @@ namespace CARP {
 			/*Console.WriteLine(CmdLine);
 			Console.WriteLine();*/
 
-			for (int i = 0; i < CmdLine.Length; i++) {
+			int i = 0;
+			for (; i < CmdLine.Length; i++) {
 				char C = CmdLine[i];
 				char PC = i > 0 ? CmdLine[i - 1] : (char)0;
 				char PPC = i > 1 ? CmdLine[i - 2] : (char)0;
+				//char NC = i < CmdLine.Length - 1 ? CmdLine[i + 1] : (char)0;
 
 				if (C == '\"') {
 					if (!InQuote) {
 						InQuote = true;
 						if (CurTok.Length > 0)
-							EmitToken(CurTok.ToString());
+							EmitToken(i, CurTok.ToString());
+
 						CurTok.Clear();
 						//CurTok.Append(C);
 					} else if (PC != '\\' || (PC == '\\' && PPC == '\\')) {
 						InQuote = false;
 						//CurTok.Append(C);
-						EmitToken(CurTok.ToString());
+						EmitToken(i, CurTok.ToString());
+
 						CurTok.Clear();
 					} else
 						CurTok.Append(C);
@@ -51,35 +65,57 @@ namespace CARP {
 				}
 
 				if (!InQuote && char.IsWhiteSpace(C) && CurTok.Length > 0) {
-					EmitToken(CurTok.ToString());
+					EmitToken(i, CurTok.ToString());
+
 					CurTok.Clear();
-				} else if (!char.IsWhiteSpace(C) || InQuote)
+					continue;
+				} else if (!char.IsWhiteSpace(C) || InQuote) {
 					CurTok.Append(C);
+					continue;
+				}
 			}
 
 			if (CurTok.Length > 0)
-				EmitToken(CurTok.ToString());
+				EmitToken(i, CurTok.ToString());
 
 			CmdLine = CmdLine.Substring(CmdLine.IndexOf(' ') + 1);
 		}
 
-		static void EmitToken(string Tok) {
+		static void EmitToken(int Idx, string Tok) {
 			Tok = Tok.Replace("\\\\", "\\").Replace("\\\"", "\"");
 
-			if (Tok.StartsWith("--")) {
+			if (StopProcessing) {
+				SuffixTokens.Add(Tok);
+				return;
+			}
+
+			if (Tok.Length == 2 && Tok == "--") {
+				StopProcessing = true;
+				SuffixStringInt = CmdLine.Substring(Idx).Trim();
+				return;
+			} else if (Tok.StartsWith("--")) {
 				EmitSwitch(Tok.Substring(2));
 				return;
 			} else if (Tok.StartsWith("-")) {
 				EmitSwitch(Tok.Substring(1, 1));
 				if (Tok.Length > 2)
-					EmitToken(Tok.Substring(2));
+					EmitToken(Idx, Tok.Substring(2));
 				return;
 			}
 
-			if (CurrentSwitch == null)
+			if (ExePath == null)
 				ExePath = Tok;
-			else
-				Switches[CurrentSwitch].Add(Tok);
+			else {
+				if (CurrentSwitch != null) {
+					Switches[CurrentSwitch].Add(Tok);
+
+					if (OneValuePerSwitch)
+						CurrentSwitch = null;
+				} else if (OneValuePerSwitch) {
+					StopProcessing = true;
+					SuffixTokens.Add(Tok);
+				}
+			}
 		}
 
 		static void EmitSwitch(string S) {
@@ -114,6 +150,26 @@ namespace CARP {
 		}
 
 		////////////////////////////////////////////////////////////////////////////// Public functions
+
+		/// <summary>
+		/// Returns tokens after last empty '--'
+		/// </summary>
+		public static IEnumerable<string> Suffix {
+			get {
+				Parse();
+				return SuffixTokens;
+			}
+		}
+
+		/// <summary>
+		/// Returns string after last empty '--'
+		/// </summary>
+		public static string SuffixString {
+			get {
+				Parse();
+				return SuffixStringInt;
+			}
+		}
 
 		/// <summary>
 		/// Get all argument names and values passed to the program
